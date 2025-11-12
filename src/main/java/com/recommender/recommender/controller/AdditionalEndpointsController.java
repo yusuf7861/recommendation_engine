@@ -28,4 +28,3 @@ public class AdditionalEndpointsController {
         return service.getPopular(limit);
     }
 }
-
