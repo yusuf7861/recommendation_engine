@@ -1,0 +1,25 @@
+# Build and IDE
+/target/
+/.idea/
+*.iml
+*.log
+/server.log
+
+# Python env and caches
+/venv*/
+/.venv/
+__pycache__/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Large/generated data artifacts
+/artifacts/
+/data/raw/
+/data/*.gz
+/data/*.csv
+
+# Maven wrapper cache (keep wrapper scripts and .mvn directory committed)
+.mvn/wrapper/maven-wrapper.jar
+

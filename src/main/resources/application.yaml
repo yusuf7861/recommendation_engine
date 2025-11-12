@@ -1,0 +1,13 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: recommender
+
+reco:
+  artifactsDir: ./artifacts
+  hybrid:
+    wcf: 0.7
+    wContent: 0.3
+  topK: 20
