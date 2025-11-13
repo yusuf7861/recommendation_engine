@@ -11,7 +11,7 @@ os.makedirs(OUT_DIR, exist_ok=True)
 
 TOP_K_ITEMS = 10_000
 
-print("📥 Loading reviews...")
+print("Loading reviews...")
 reviews = []
 with gzip.open(f"{RAW_DIR}/Electronics_5.json.gz", "rb") as f:
     for line in tqdm(f):
@@ -28,10 +28,10 @@ item_popularity = df_reviews.groupby("item_id").size().sort_values(ascending=Fal
 top_items = set(item_popularity.head(TOP_K_ITEMS).index)
 df_reviews = df_reviews[df_reviews["item_id"].isin(top_items)]
 
-print(f"📊 Filtered to top {TOP_K_ITEMS} items.")
+print(f"Filtered to top {TOP_K_ITEMS} items.")
 print(f"Remaining interactions: {len(df_reviews):,}")
 
-print("📦 Loading metadata...")
+print("Loading metadata...")
 meta = []
 with gzip.open(f"{RAW_DIR}/meta_Electronics.json.gz", "rb") as f:
     for line in tqdm(f):
@@ -60,7 +60,7 @@ def clean_image(images):
     return ""
 
 df_meta["category"] = df_meta["category"].apply(flatten_category)
-df_meta["title"] = df_meta["title"].fillna("").apply(lambda x: re.sub(r"[\\n\\r\\t]", " ", x))
+df_meta["title"] = df_meta["title"].fillna("").apply(lambda x: re.sub(r"[\n\r\t]", " ", x))
 df_meta["brand"] = df_meta["brand"].fillna("Unknown").astype(str)
 df_meta["description"] = df_meta["description"].fillna("").astype(str)
 df_meta["image_url"] = df_meta["image_url"].apply(clean_image)
@@ -72,6 +72,6 @@ df_reviews.drop_duplicates(subset=["user_id", "item_id"], inplace=True)
 df_reviews.to_csv(f"{OUT_DIR}/interactions.csv", index=False)
 df_meta.to_csv(f"{OUT_DIR}/items.csv", index=False)
 
-print("\n✅ Done!")
+print("\nDone!")
 print(f" - interactions.csv ({len(df_reviews):,} rows)")
 print(f" - items.csv ({len(df_meta):,} items)")

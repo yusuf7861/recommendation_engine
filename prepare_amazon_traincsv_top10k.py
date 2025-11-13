@@ -11,10 +11,10 @@ os.makedirs(OUT_DIR, exist_ok=True)
 TOP_K_ITEMS = 10000
 
 # ---------- 1. Load Electronics.train.csv.gz ----------
-print("📥 Loading Electronics.train.csv.gz ...")
+print("Loading Electronics.train.csv.gz ...")
 df = pd.read_csv(os.path.join(RAW_DIR, "Electronics.train.csv.gz"), compression='gzip')
 
-print("✅ Loaded:", len(df), "rows")
+print("Loaded:", len(df), "rows")
 print("Columns:", list(df.columns))
 
 # ---------- 2. Standardize column names ----------
@@ -41,7 +41,7 @@ item_popularity = df.groupby("item_id").size().sort_values(ascending=False)
 top_items = set(item_popularity.head(TOP_K_ITEMS).index)
 df = df[df["item_id"].isin(top_items)]
 
-print(f"📊 Filtered to top {TOP_K_ITEMS} most popular items")
+print(f"Filtered to top {TOP_K_ITEMS} most popular items")
 print(f"Remaining interactions: {len(df)}")
 
 # ---------- 5. Extract interactions ----------
@@ -58,6 +58,6 @@ df_meta["image_url"] = "https://via.placeholder.com/300x300?text=" + df_meta["ti
 interactions.to_csv(os.path.join(OUT_DIR, "interactions.csv"), index=False)
 df_meta.to_csv(os.path.join(OUT_DIR, "items.csv"), index=False)
 
-print("\n✅ Saved:")
+print("\nSaved:")
 print(f" - data/interactions.csv ({len(interactions)} rows)")
 print(f" - data/items.csv ({len(df_meta)} products)")
