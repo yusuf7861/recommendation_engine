@@ -89,6 +89,7 @@ curl -s "http://localhost:8080/api/v1/popular?limit=5"
 
 Base path: `/api/v1`
 
+Quick examples:
 - Popular items
   - `GET /api/v1/popular?limit=5`
   - Returns: `[{ item_id, title, brand, category, image_url, score }]`
@@ -96,6 +97,13 @@ Base path: `/api/v1`
 - Recommendations for a user
   - `GET /api/v1/recommendations?user_id=U123&limit=5`
   - Returns: `[{ item_id, title, brand, category, image_url, score }]`
+
+For complete API documentation including:
+- Detailed request/response schemas
+- All 5 endpoints with full examples
+- Frontend integration code (JavaScript, React, TypeScript)
+- Error handling and best practices
+- **See [API.md](API.md) for comprehensive documentation**
 
 Notes
 - CORS is open (`@CrossOrigin("*")`) for quick testing
