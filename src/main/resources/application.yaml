@@ -5,8 +5,18 @@ spring:
   application:
     name: recommender
 
+  cache:
+    type: redis
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2s
+
 reco:
-  artifactsDir: ./artifacts
+  # Point to the artifacts directory at the project root relative to the module
+  artifactsDir: ../artifacts
   hybrid:
     wcf: 0.7
     wContent: 0.3

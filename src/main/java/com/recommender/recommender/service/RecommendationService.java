@@ -8,6 +8,7 @@ import com.recommender.recommender.model.Product;
 import com.recommender.recommender.model.RecommendationResponse;
 import com.recommender.recommender.utils.MathUtils;
 import jakarta.annotation.PostConstruct;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
@@ -133,10 +134,12 @@ public class RecommendationService {
                 .collect(Collectors.toList());
     }
 
+    @Cacheable(cacheNames = "recs:popular", key = "#limit", unless = "#result == null || #result.isEmpty()")
     public List<RecommendationResponse> getPopular(int limit) {
         return getPopularItems(limit);
     }
 
+    @Cacheable(cacheNames = "recs:user", key = "#userId + ':' + #limit", unless = "#result == null || #result.isEmpty()")
     public List<RecommendationResponse> recommendForUser(String userId, int limit) {
         Integer uIdx = user2idx.get(userId);
 
@@ -189,8 +192,7 @@ public class RecommendationService {
         return getTopRecommendations(scores, limit, seedItemId);
     }
 
-
-
+    @Cacheable(cacheNames = "recs:similar", key = "#itemId + ':' + #limit", unless = "#result == null || #result.isEmpty()")
     public List<RecommendationResponse> getSimilarItems(String itemId, int limit) {
         if (!item2idx.containsKey(itemId)) {
             System.out.println("⚠️ Unknown item: " + itemId);

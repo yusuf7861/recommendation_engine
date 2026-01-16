@@ -1,0 +1,27 @@
+# Reduce Docker build context size to avoid build failures and speed up builds
+
+# Java / Maven
+/target/
+**/target/
+*.iml
+.idea/
+
+# Python / venv / notebooks
+venv*/
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Large datasets & artifacts (not needed to compile the JAR)
+/data/
+/artifacts/
+
+# VCS
+.git/
+.gitignore
+
+# OS/editor clutter
+.DS_Store
+Thumbs.db
+
