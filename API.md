@@ -16,6 +16,8 @@ Notes and behaviors
 - For unknown/empty users, the service falls back to content-based or popular items and still returns 200 with a (possibly empty) array.
 - For unknown itemId in "similar", the service returns 200 with an empty array.
 - Default limit is 5 unless specified.
+- Limit values are normalized: `limit <= 0` becomes `5`, and large values are capped by `reco.topK` (default `20`).
+- Artifact loading path is configurable with `reco.artifactsDir` (default `artifacts`).
 
 ---
 
@@ -85,7 +87,7 @@ Response (200)
 ---
 
 4) GET /api/v1/popular
-Purpose: Get a simple popular/fallback list (currently first N items).
+Purpose: Get a popular/fallback list ranked by interaction frequency.
 
 Request
 - Query params:

@@ -68,11 +68,18 @@ df_merged["title"].replace("", "Untitled Product", inplace=True)
 interactions = df_merged[["user_id", "item_id", "event_type", "event_value", "ts"]].drop_duplicates()
 items = df_meta.drop_duplicates(subset=["item_id"])
 
-# fill missing image URLs
-items["image_url"] = items["image_url"].apply(
-    lambda x: x[0] if isinstance(x, list) and len(x) > 0 else
-    ("https://via.placeholder.com/300x300?text=" + re.sub(r'\s+', '+', str(items.get('title', 'Item'))))
-)
+# fill missing image URLs using row-specific title values
+def normalize_image_url(row):
+    image = row.get("image_url", "")
+    if isinstance(image, list) and len(image) > 0:
+        return image[0]
+    if isinstance(image, str) and image.startswith("http"):
+        return image
+
+    title = str(row.get("title", "Item")).strip() or "Item"
+    return "https://via.placeholder.com/300x300?text=" + re.sub(r"\s+", "+", title)
+
+items["image_url"] = items.apply(normalize_image_url, axis=1)
 
 # save
 interactions.to_csv(os.path.join(OUT_DIR, "interactions.csv"), index=False)

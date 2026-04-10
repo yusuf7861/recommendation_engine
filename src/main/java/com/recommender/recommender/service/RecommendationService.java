@@ -8,6 +8,7 @@ import com.recommender.recommender.model.Product;
 import com.recommender.recommender.model.RecommendationResponse;
 import com.recommender.recommender.utils.MathUtils;
 import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
@@ -19,7 +20,15 @@ import java.util.stream.Collectors;
 @Service
 public class RecommendationService {
 
-    private final String ARTIFACTS_DIR = "artifacts/";
+    private static final int DEFAULT_LIMIT = 5;
+
+    @Value("${reco.artifactsDir:artifacts}")
+    private String artifactsDir;
+
+    @Value("${reco.topK:20}")
+    private int maxLimit;
+
+    private Path artifactsBaseDir;
 
     private Map<String, Integer> user2idx;
     private Map<String, Integer> item2idx;
@@ -34,15 +43,19 @@ public class RecommendationService {
     private List<Product> items;
     private Map<String, Product> itemById = new HashMap<>();
     private Map<String, List<String>> interactionsByUser = new HashMap<>();
+    private Map<String, Integer> itemInteractionCounts = new HashMap<>();
+    private List<String> rankedPopularItemIds = new ArrayList<>();
 
     @PostConstruct
     public void loadArtifacts() {
         try {
             System.out.println("🔄 Loading recommender artifacts...");
+            artifactsBaseDir = resolveArtifactsBaseDir();
+            System.out.println("📁 Using artifacts dir: " + artifactsBaseDir);
 
             ObjectMapper mapper = new ObjectMapper();
             Map<String, Object> mapping = mapper.readValue(
-                    new File(ARTIFACTS_DIR + "mappings.json"),
+                    new File(resolveArtifactPath("mappings.json")),
                     new TypeReference<>() {}
             );
 
@@ -64,10 +77,10 @@ public class RecommendationService {
             // ---- Load CSV matrices ----
             try {
                 // ⚠️ Load all matrices
-                double[][] uFac = loadMatrix(ARTIFACTS_DIR + "user_factors.csv");
-                double[][] iFac = loadMatrix(ARTIFACTS_DIR + "item_factors.csv");
-                double[][] uCont = loadMatrix(ARTIFACTS_DIR + "user_content.csv");
-                double[][] iCont = loadMatrix(ARTIFACTS_DIR + "item_content.csv");
+                double[][] uFac = loadMatrix(resolveArtifactPath("user_factors.csv"));
+                double[][] iFac = loadMatrix(resolveArtifactPath("item_factors.csv"));
+                double[][] uCont = loadMatrix(resolveArtifactPath("user_content.csv"));
+                double[][] iCont = loadMatrix(resolveArtifactPath("item_content.csv"));
 
                 // ---- Detect swapped matrices ----
                 if (uFac.length < iFac.length) {
@@ -120,33 +133,52 @@ public class RecommendationService {
     }
 
     private List<RecommendationResponse> getPopularItems(int limit) {
-        // Simple fallback: first N items (you can sort by category or brand if you like)
-        return items.stream()
-                .limit(limit)
-                .map(p -> new RecommendationResponse(
-                        p.getItem_id(),
-                        p.getTitle(),
-                        p.getBrand(),
-                        p.getCategory(),
-                        p.getImage_url(),
-                        0.0
-                ))
-                .collect(Collectors.toList());
+        if (rankedPopularItemIds.isEmpty()) {
+            return items.stream()
+                    .limit(limit)
+                    .map(p -> new RecommendationResponse(
+                            p.getItem_id(),
+                            p.getTitle(),
+                            p.getBrand(),
+                            p.getCategory(),
+                            p.getImage_url(),
+                            0.0
+                    ))
+                    .collect(Collectors.toList());
+        }
+
+        List<RecommendationResponse> out = new ArrayList<>();
+        for (String itemId : rankedPopularItemIds) {
+            if (out.size() >= limit) break;
+            Product p = itemById.get(itemId);
+            if (p == null) continue;
+            out.add(new RecommendationResponse(
+                    p.getItem_id(),
+                    p.getTitle(),
+                    p.getBrand(),
+                    p.getCategory(),
+                    p.getImage_url(),
+                    0.0
+            ));
+        }
+        return out;
     }
 
     @Cacheable(cacheNames = "recs:popular", key = "#limit", unless = "#result == null || #result.isEmpty()")
     public List<RecommendationResponse> getPopular(int limit) {
-        return getPopularItems(limit);
+        int normalizedLimit = normalizeLimit(limit);
+        return getPopularItems(normalizedLimit);
     }
 
     @Cacheable(cacheNames = "recs:user", key = "#userId + ':' + #limit", unless = "#result == null || #result.isEmpty()")
     public List<RecommendationResponse> recommendForUser(String userId, int limit) {
+        int normalizedLimit = normalizeLimit(limit);
         Integer uIdx = user2idx.get(userId);
 
         // 🔹 Handle unknown or cold-start users
         if (uIdx == null || uIdx < 0 || uIdx >= userFactors.length) {
             System.out.println("⚠️ Unknown or inactive user: " + userId + " → content-based fallback");
-            return recommendContentBased(userId, limit);
+            return recommendContentBased(userId, normalizedLimit);
         }
 
         double[] cfVector = userFactors[uIdx];
@@ -161,27 +193,28 @@ public class RecommendationService {
             scores[i] = hybridWCF * simCF + hybridWContent * simContent;
         }
 
-        List<RecommendationResponse> recs = getTopRecommendations(scores, limit);
+        List<RecommendationResponse> recs = getTopRecommendations(scores, normalizedLimit);
         if (recs.isEmpty()) {
             System.out.println("⚠️ Hybrid returned empty → using content-based fallback");
-            return recommendContentBased(userId, limit);
+            return recommendContentBased(userId, normalizedLimit);
         }
 
         return recs;
     }
 
     public List<RecommendationResponse> recommendContentBased(String userId, int limit) {
+        int normalizedLimit = normalizeLimit(limit);
 
         List<String> interactedItems = interactionsByUser.getOrDefault(userId, Collections.emptyList());
         if (interactedItems.isEmpty()) {
             System.out.println("⚠️ No interactions for user " + userId + " → showing popular items");
-            return getPopularItems(limit);
+            return getPopularItems(normalizedLimit);
         }
 
         String seedItemId = interactedItems.get(0);
         Integer seedIdx = item2idx.get(seedItemId);
         if (seedIdx == null || seedIdx < 0 || seedIdx >= itemContent.length)
-            return getPopularItems(limit);
+            return getPopularItems(normalizedLimit);
 
         double[] seedVec = itemContent[seedIdx];
         double[] scores = new double[itemContent.length];
@@ -189,11 +222,12 @@ public class RecommendationService {
             scores[i] = MathUtils.cosine(seedVec, itemContent[i]);
         }
 
-        return getTopRecommendations(scores, limit, seedItemId);
+        return getTopRecommendations(scores, normalizedLimit, seedItemId);
     }
 
     @Cacheable(cacheNames = "recs:similar", key = "#itemId + ':' + #limit", unless = "#result == null || #result.isEmpty()")
     public List<RecommendationResponse> getSimilarItems(String itemId, int limit) {
+        int normalizedLimit = normalizeLimit(limit);
         if (!item2idx.containsKey(itemId)) {
             System.out.println("⚠️ Unknown item: " + itemId);
             return Collections.emptyList();
@@ -218,7 +252,7 @@ public class RecommendationService {
             scores[i] = hybridWCF * simCF + hybridWContent * simContent;
         }
 
-        return getTopRecommendations(scores, limit, itemId);
+        return getTopRecommendations(scores, normalizedLimit, itemId);
     }
 
 
@@ -231,6 +265,8 @@ public class RecommendationService {
     }
 
     private List<RecommendationResponse> getTopRecommendations(double[] scores, int limit, String excludeItemId) {
+        if (limit <= 0) return Collections.emptyList();
+
         // Build indices [0..n)
         int n = scores.length;
         List<Integer> idx = new ArrayList<>(n);
@@ -364,9 +400,13 @@ public class RecommendationService {
     }
 
     private void loadInteractionsCsv(String path) {
+        interactionsByUser.clear();
+        itemInteractionCounts.clear();
+
         Path p = Paths.get(path);
         if (!Files.exists(p)) {
             System.out.println("ℹ️ interactions.csv not found at " + path + ", continuing without it.");
+            rebuildPopularRanking();
             return;
         }
         long count = 0;
@@ -384,6 +424,7 @@ public class RecommendationService {
             Integer iIdx = firstNonNullIndex(idx, "item_id", "item", "iid");
             if (uIdx == null || iIdx == null) {
                 System.out.println("⚠️ interactions.csv missing user_id/item_id columns; detected: " + Arrays.toString(header));
+                rebuildPopularRanking();
                 return;
             }
 
@@ -395,12 +436,35 @@ public class RecommendationService {
                 String iid = parts[iIdx].trim();
                 if (uid.isEmpty() || iid.isEmpty()) continue;
                 interactionsByUser.computeIfAbsent(uid, k -> new ArrayList<>()).add(iid);
+                itemInteractionCounts.merge(iid, 1, Integer::sum);
                 count++;
             }
             System.out.println("✅ Loaded interactions: " + count + ", users with interactions: " + interactionsByUser.size());
+            rebuildPopularRanking();
         } catch (IOException e) {
             System.out.println("⚠️ Failed to read interactions.csv: " + e.getMessage());
+            rebuildPopularRanking();
         }
+    }
+
+    private void rebuildPopularRanking() {
+        if (items == null || items.isEmpty()) {
+            rankedPopularItemIds = new ArrayList<>();
+            return;
+        }
+
+        rankedPopularItemIds = items.stream()
+                .map(Product::getItem_id)
+                .filter(Objects::nonNull)
+                .filter(id -> !id.isBlank())
+                .distinct()
+                .sorted((a, b) -> {
+                    int cb = itemInteractionCounts.getOrDefault(b, 0);
+                    int ca = itemInteractionCounts.getOrDefault(a, 0);
+                    if (cb != ca) return Integer.compare(cb, ca);
+                    return a.compareTo(b);
+                })
+                .collect(Collectors.toList());
     }
 
     private Integer firstNonNullIndex(Map<String, Integer> idx, String... keys) {
@@ -414,6 +478,36 @@ public class RecommendationService {
     private String getSafe(String[] arr, Integer i) {
         if (i == null || i < 0 || i >= arr.length) return "";
         return arr[i].trim();
+    }
+
+    private int normalizeLimit(int requestedLimit) {
+        int effectiveMax = maxLimit > 0 ? maxLimit : DEFAULT_LIMIT;
+        if (requestedLimit <= 0) return DEFAULT_LIMIT;
+        return Math.min(requestedLimit, effectiveMax);
+    }
+
+    private String resolveArtifactPath(String fileName) {
+        if (artifactsBaseDir == null) {
+            artifactsBaseDir = resolveArtifactsBaseDir();
+        }
+        return artifactsBaseDir.resolve(fileName).toString();
+    }
+
+    private Path resolveArtifactsBaseDir() {
+        List<Path> candidates = List.of(
+                Paths.get(artifactsDir),
+                Paths.get("artifacts"),
+                Paths.get("../artifacts")
+        );
+
+        for (Path candidate : candidates) {
+            Path normalized = candidate.normalize();
+            if (Files.exists(normalized.resolve("mappings.json"))) {
+                return normalized;
+            }
+        }
+
+        return Paths.get(artifactsDir).normalize();
     }
 
     public int getUserCount() { return user2idx != null ? user2idx.size() : 0; }
