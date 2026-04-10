@@ -1,0 +1,5 @@
+Model,Precision@10,Recall@10,F1@10,Coverage,Training Time (min),Precision Improvement
+Standard Collaborative Filtering,0.0194,0.0894,0.0299,0.7642,65.2,—
+Hybrid System (CF + Content),0.0206,0.0932,0.0318,0.8156,82.4,+6.2%
+Content-Based Only,0.0165,0.0723,0.0255,0.6234,12.3,-14.9%
+Popularity Baseline,0.0142,0.0598,0.022,0.4567,0.1,-26.8%
