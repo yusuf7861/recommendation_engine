@@ -6,7 +6,7 @@ spring:
     name: recommender
 
   cache:
-    type: redis
+    type: ${SPRING_CACHE_TYPE:simple}
 
   data:
     redis:

@@ -2,20 +2,24 @@ package com.recommender.recommender.controller;
 
 import com.recommender.recommender.model.RecommendationResponse;
 import com.recommender.recommender.service.RecommendationService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1")
 @CrossOrigin(origins = "*")
+@Validated
 public class RecommendationController {
 
     @Autowired
     private RecommendationService recommendationService;
 
     @PostMapping("/recommendations")
-    public List<RecommendationResponse> getRecommendations(@RequestBody UserRequest request) {
+    public List<RecommendationResponse> getRecommendations(@Valid @RequestBody UserRequest request) {
         return recommendationService.recommendForUser(request.getUser_id(), request.getLimit());
     }
 
@@ -27,6 +31,7 @@ public class RecommendationController {
 
     // Simple DTO
     public static class UserRequest {
+        @NotBlank(message = "User ID is required")
         private String user_id;
         private int limit = 5;
 
@@ -36,4 +41,3 @@ public class RecommendationController {
         public void setLimit(int limit) { this.limit = limit; }
     }
 }
-
