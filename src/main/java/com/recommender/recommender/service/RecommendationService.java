@@ -515,4 +515,19 @@ public class RecommendationService {
     public int getInteractedUserCount() { return interactionsByUser != null ? interactionsByUser.size() : 0; }
     public double getHybridWCF() { return hybridWCF; }
     public double getHybridWContent() { return hybridWContent; }
+
+    public Map<String, Object> getHealth() {
+        Map<String, Object> health = new LinkedHashMap<>();
+        try {
+            health.put("status", "UP");
+            health.put("users", getUserCount());
+            health.put("items", getItemCount());
+            health.put("interactionsUsers", getInteractedUserCount());
+            health.put("hybridWeights", Map.of("cf", getHybridWCF(), "content", getHybridWContent()));
+        } catch (Exception e) {
+            health.put("status", "ERROR");
+            health.put("message", e.getMessage());
+        }
+        return health;
+    }
 }
