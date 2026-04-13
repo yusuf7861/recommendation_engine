@@ -44,3 +44,12 @@ Invoke-WebRequest -UseBasicParsing 'http://localhost:8080/api/v1/popular?limit=3
 ## Notes
 - See `API.md` for schema and examples.
 - See `src/main/resources/application.yaml` for config (port, names, etc.).
+
+## 📋 Code Review Available
+A comprehensive code review has been completed for this project:
+- **[REVIEW_INDEX.md](REVIEW_INDEX.md)** - Start here! Navigation guide for all review documents
+- **[REVIEW_SUMMARY.md](REVIEW_SUMMARY.md)** - Executive summary (Rating: ⭐⭐⭐⭐ 4/5)
+- **[CODE_REVIEW.md](CODE_REVIEW.md)** - Detailed technical analysis (24 findings)
+- **[IMPROVEMENT_PLAN.md](IMPROVEMENT_PLAN.md)** - Step-by-step improvement roadmap
+
+The review identifies critical security issues, provides actionable fixes, and includes a 3-week implementation plan.
